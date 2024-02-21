@@ -8,6 +8,11 @@ import (
 	"github.com/altxtech/webhook-connector/src/model"
 )
 
+type Configuration struct {
+	ID string `json:"id" firestore:"id"`
+	ProjectID string `json:"project_id" firestore:"id"`
+	Dataset string `json:"dataset" firestore:"dataset"`
+}
 
 func helloWorld(c *gin.Context){
 	c.String(http.StatusOK, "Hello webhook connector!")
