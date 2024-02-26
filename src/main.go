@@ -92,6 +92,24 @@ func GetConfig(c *gin.Context) {
 	return
 }
 
+func UpdateConfig(c *gin.Context) {
+	var request CreateConfigRequest
+	err := c.ShouldBindJSON(&request)
+	if err != nil {
+		c.IndentedJSON(http.StatusBadRequest, NewAPIErrorResponse("Invalid request body."))
+		return
+	}
+
+	// Create configuration object
+	id := c.Param("id")
+	updatedConfig := database.NewConfiguration(request.ProjectID, request.Dataset, request.Table)
+
+	// Update on database
+	result, err := db.UpdateConfig(id, updatedConfig)
+	c.IndentedJSON(http.StatusOK, result)
+	return
+}
+
 // Initialize database
 func initDB() database.Database {
 	return database.NewInMemoryDB()
@@ -107,6 +125,7 @@ func main() {
 	router.POST("/configurations", CreateConfig)
 	router.GET("/configurations", ListConfigs)
 	router.GET("/configurations/:id", GetConfig)
+	router.PUT("/configurations/:id", UpdateConfig)
 
 	router.POST("/ingest/:configId", ingestWebhook)
 

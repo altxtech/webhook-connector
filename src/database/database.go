@@ -28,6 +28,7 @@ type Database interface {
 	InsertConfig(Configuration) (Configuration, error)
 	ListConfigs() ([]Configuration, error)
 	GetConfigByID(string) (Configuration, error) // Returns identified configuration
+	UpdateConfig(string, Configuration) (Configuration, error)
 }
 
 type inMemoryDatabase struct {
@@ -72,4 +73,22 @@ func (db *inMemoryDatabase) GetConfigByID(id string) (Configuration, error) {
 		return config, fmt.Errorf("Configuration with id %s not found", id)
 	}
 	return config, nil
+}
+
+func (db *inMemoryDatabase) UpdateConfig(id string, c Configuration) (Configuration, error) {
+
+	// The input Configuration must be Unidentified and existing in the database
+	var result Configuration
+	if c.ID != "" {
+		return result, errors.New("Configuration must be unidentified")
+	}
+
+	_, ok := db.Configurations[id]
+	if !ok {
+		return result, errors.New("Configuration not found")
+	}
+
+	c.ID = id
+	db.Configurations[id] = c
+	return c, nil
 }
