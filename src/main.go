@@ -23,6 +23,7 @@ func NewAPIErrorResponse(error string) APIErrorResponse {
 type CreateConfigRequest struct {
 	ProjectID string `json:"project_id"`
 	Dataset   string `json:"dataset"`
+	Table     string `json:"table"`
 }
 
 func helloWorld(c *gin.Context) {
@@ -50,7 +51,7 @@ func CreateConfig(c *gin.Context) {
 	}
 
 	// Create configuration object
-	newConfig := database.NewConfiguration(request.ProjectID, request.Dataset)
+	newConfig := database.NewConfiguration(request.ProjectID, request.Dataset, request.Table)
 
 	// Insert into database
 	idConfig, err := db.InsertConfig(newConfig)
@@ -75,6 +76,9 @@ var db database.Database = initDB()
 func main() {
 	router := gin.Default()
 	router.GET("/hello-world", helloWorld)
+
+	// Configurations
+	router.POST("/configurations", CreateConfig)
 
 	router.POST("/ingest/:configId", ingestWebhook)
 

@@ -11,14 +11,16 @@ type Configuration struct {
 	ID        string `json:"id" firestore:"id"` // "" means unindentified configuration
 	ProjectID string `json:"project_id" firestore:"id"`
 	Dataset   string `json:"dataset" firestore:"dataset"`
+	Table     string `json:"table" firestore:"table"`
 }
 
-func NewConfiguration(projectID string, dataset string) Configuration {
+func NewConfiguration(projectID string, dataset string, table string) Configuration {
 	// Creates a new configuration without identity
 	return Configuration{
 		ID:        "",
 		ProjectID: projectID,
 		Dataset:   dataset,
+		Table:     table,
 	}
 }
 
@@ -32,7 +34,9 @@ type inMemoryDatabase struct {
 }
 
 func NewInMemoryDB() Database {
-	return &inMemoryDatabase{}
+	return &inMemoryDatabase{
+		Configurations: map[string]Configuration{},
+	}
 }
 
 func (db *inMemoryDatabase) InsertConfig(c Configuration) (Configuration, error) {
