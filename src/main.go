@@ -1,24 +1,35 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
-	"net/http"
+	"fmt"
 	"log"
-	
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/altxtech/webhook-connector/src/database"
 	"github.com/altxtech/webhook-connector/src/model"
 )
 
-type Configuration struct {
-	ID string `json:"id" firestore:"id"`
-	ProjectID string `json:"project_id" firestore:"id"`
-	Dataset string `json:"dataset" firestore:"dataset"`
+// API Interface
+type APIErrorResponse struct {
+	Error string `json:"error"`
 }
 
-func helloWorld(c *gin.Context){
+func NewAPIErrorResponse(error string) APIErrorResponse {
+	return APIErrorResponse{Error: error}
+}
+
+type CreateConfigRequest struct {
+	ProjectID string `json:"project_id"`
+	Dataset   string `json:"dataset"`
+}
+
+func helloWorld(c *gin.Context) {
 	c.String(http.StatusOK, "Hello webhook connector!")
 }
 
-func ingestWebhook(c *gin.Context){
+func ingestWebhook(c *gin.Context) {
 	// 1. Fetch the configuration settings from the database
 	// 2. Create the webhookEvent object
 	// 3. Write to bigquery
@@ -26,8 +37,42 @@ func ingestWebhook(c *gin.Context){
 	log.Println(event)
 }
 
+// Handlers
+// Configurations
+func CreateConfig(c *gin.Context) {
+
+	// Read and validate request
+	var request CreateConfigRequest
+	err := c.ShouldBindJSON(&request)
+	if err != nil {
+		c.IndentedJSON(http.StatusBadRequest, NewAPIErrorResponse("Invalid Configuration object"))
+		return
+	}
+
+	// Create configuration object
+	newConfig := database.NewConfiguration(request.ProjectID, request.Dataset)
+
+	// Insert into database
+	idConfig, err := db.InsertConfig(newConfig)
+	if err != nil {
+		message := fmt.Sprintf("Failed to insert configuration into database: %v", err)
+		response := NewAPIErrorResponse(message)
+		c.IndentedJSON(http.StatusBadRequest, response)
+		return
+	}
+
+	c.IndentedJSON(http.StatusOK, idConfig)
+	return
+}
+
+// Initialize database
+func initDB() database.Database {
+	return database.NewInMemoryDB()
+}
+
+var db database.Database = initDB()
+
 func main() {
-	
 	router := gin.Default()
 	router.GET("/hello-world", helloWorld)
 
