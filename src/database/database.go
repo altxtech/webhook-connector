@@ -57,7 +57,7 @@ func (db *inMemoryDatabase) InsertConfig(c Configuration) (Configuration, error)
 }
 
 func (db *inMemoryDatabase) ListConfigs() ([]Configuration, error) {
-	var configs []Configuration
+	var configs []Configuration = []Configuration{}
 	for _, value := range db.Configurations {
 		configs = append(configs, value)
 	}

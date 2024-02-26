@@ -66,6 +66,19 @@ func CreateConfig(c *gin.Context) {
 	return
 }
 
+// List configs
+func ListConfigs(c *gin.Context) {
+	configs, err := db.ListConfigs()
+	if err != nil {
+		message := fmt.Sprintf("Failed to retrieve configurations: %v", err)
+		response := NewAPIErrorResponse(message)
+		c.IndentedJSON(http.StatusInternalServerError, response)
+		return
+	}
+
+	c.IndentedJSON(http.StatusOK, configs)
+}
+
 // Initialize database
 func initDB() database.Database {
 	return database.NewInMemoryDB()
@@ -79,6 +92,7 @@ func main() {
 
 	// Configurations
 	router.POST("/configurations", CreateConfig)
+	router.GET("/configurations", ListConfigs)
 
 	router.POST("/ingest/:configId", ingestWebhook)
 
