@@ -26,6 +26,7 @@ func NewConfiguration(projectID string, dataset string, table string) Configurat
 
 type Database interface {
 	InsertConfig(Configuration) (Configuration, error)
+	ListConfigs() ([]Configuration, error)
 	GetConfigByID(string) (Configuration, error) // Returns identified configuration
 }
 
@@ -53,6 +54,16 @@ func (db *inMemoryDatabase) InsertConfig(c Configuration) (Configuration, error)
 
 	db.Configurations[result.ID] = result
 	return result, nil
+}
+
+func (db *inMemoryDatabase) ListConfigs() ([]Configuration, error) {
+	var configs []Configuration
+	for _, value := range db.Configurations {
+		configs = append(configs, value)
+	}
+
+	// This interface, in particular, can't error
+	return configs, nil
 }
 
 func (db *inMemoryDatabase) GetConfigByID(id string) (Configuration, error) {
