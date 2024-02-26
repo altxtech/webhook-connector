@@ -79,6 +79,19 @@ func ListConfigs(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, configs)
 }
 
+func GetConfig(c *gin.Context) {
+	id := c.Param("id")
+	config, err := db.GetConfigByID(id)
+	if err != nil {
+		response := NewAPIErrorResponse(fmt.Sprintf("Configuration with id %s not found.", id))
+		c.IndentedJSON(http.StatusNotFound, response)
+		return
+	}
+
+	c.IndentedJSON(http.StatusOK, config)
+	return
+}
+
 // Initialize database
 func initDB() database.Database {
 	return database.NewInMemoryDB()
@@ -93,6 +106,7 @@ func main() {
 	// Configurations
 	router.POST("/configurations", CreateConfig)
 	router.GET("/configurations", ListConfigs)
+	router.GET("/configurations/:id", GetConfig)
 
 	router.POST("/ingest/:configId", ingestWebhook)
 
