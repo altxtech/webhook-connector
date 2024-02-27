@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"io"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/altxtech/webhook-connector/src/database"
 	"github.com/altxtech/webhook-connector/src/model"
+	"github.com/altxtech/webhook-connector/src/utils"
 )
 
 // API Interface
@@ -28,14 +31,6 @@ type CreateConfigRequest struct {
 
 func helloWorld(c *gin.Context) {
 	c.String(http.StatusOK, "Hello webhook connector!")
-}
-
-func ingestWebhook(c *gin.Context) {
-	// 1. Fetch the configuration settings from the database
-	// 2. Create the webhookEvent object
-	// 3. Write to bigquery
-	event := model.WebhookEvent{}
-	log.Println(event)
 }
 
 // Handlers
@@ -124,6 +119,41 @@ func DeleteConfig(c *gin.Context){
 	return
 }
 
+
+// Ingesting webhooks
+func IngestWebhook(c *gin.Context){
+
+	event := model.WebhookEvent{
+		Metadata: &model.Metadata{
+			ReceivedAt: timestamppb.Now(),
+			LoadedAt: timestamppb.Now(), // TODO: Fix. Should be as close as possible to the instante the event is loaded into the sink
+		},
+	}
+	
+	// Read body data
+	data, err := io.ReadAll(c.Request.Body) 
+	if err != nil {
+		message := fmt.Sprintf("Error reading reponse body: %v", err)
+		response := NewAPIErrorResponse(message)
+		c.IndentedJSON(http.StatusBadRequest, response)
+		return
+	}
+
+	// Check if data is valid json
+	if !utils.IsValidJSON(data){
+		response := NewAPIErrorResponse("Request body is not valid JSON")
+		c.IndentedJSON(http.StatusBadRequest, response)
+		return
+	}
+
+	// Set event data
+	event.Event = string(data)
+
+	// Now we should funnel the event into a sink. For now, we just log
+	log.Println(event)
+	c.IndentedJSON(http.StatusOK, "Webhook received")
+}
+
 // Initialize database
 func initDB() database.Database {
 	return database.NewInMemoryDB()
@@ -142,7 +172,7 @@ func main() {
 	router.PUT("/configurations/:id", UpdateConfig)
 	router.DELETE("/configurations/:id", DeleteConfig)
 
-	router.POST("/ingest/:configId", ingestWebhook)
+	router.POST("/ingest/:configId", IngestWebhook)
 
 	router.Run()
 }
