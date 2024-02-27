@@ -34,7 +34,7 @@ func getDescriptor(message protoreflect.ProtoMessage) *descriptorpb.DescriptorPr
 type JSONLSink struct {
 	Path string
 }
-func NewJsonlSink (path string) JSONLSink {
+func NewJSONLSink (path string) JSONLSink {
 	return JSONLSink{
 		Path: path,
 	}

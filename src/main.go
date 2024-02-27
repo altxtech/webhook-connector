@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -12,6 +11,7 @@ import (
 
 	conf "github.com/altxtech/webhook-connector/src/configurations"
 	"github.com/altxtech/webhook-connector/src/database"
+	"github.com/altxtech/webhook-connector/src/sink"
 	"github.com/altxtech/webhook-connector/src/model"
 	"github.com/altxtech/webhook-connector/src/utils"
 )
@@ -186,6 +186,15 @@ func IngestWebhook(c *gin.Context){
 			LoadedAt: timestamppb.Now(), // TODO: Fix. Should be as close as possible to the instante the event is loaded into the sink
 		},
 	}
+
+	// Validate id exists
+	_, err := db.GetConfigByID(c.Param("id"))
+	if err != nil {
+		message := fmt.Sprintf("Config with id %s not found.", c.Param("id"))
+		response := NewAPIErrorResponse(message)
+		c.IndentedJSON(http.StatusNotFound, response)
+		return
+	}
 	
 	// Read body data
 	data, err := io.ReadAll(c.Request.Body) 
@@ -206,17 +215,18 @@ func IngestWebhook(c *gin.Context){
 	// Set event data
 	event.Event = string(data)
 
-	// Now we should funnel the event into a sink. For now, we just log
-	log.Println(event)
-	c.IndentedJSON(http.StatusOK, "Webhook received")
+	// NEXT: Get the sink for this configuration
+
 }
+
 
 // Initialize database
 func initDB() database.Database {
 	return database.NewInMemoryDB()
 }
-
 var db database.Database = initDB()
+
+var sinkManager map[string]sink.Sink = map[string]sink.Sink{}
 
 func main() {
 	router := gin.Default()
@@ -229,7 +239,7 @@ func main() {
 	router.PUT("/configurations/:id", UpdateConfig)
 	router.DELETE("/configurations/:id", DeleteConfig)
 
-	router.POST("/ingest/:configId", IngestWebhook)
+	router.POST("/ingest/:id", IngestWebhook)
 
 	router.Run()
 }
