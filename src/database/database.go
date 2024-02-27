@@ -29,6 +29,7 @@ type Database interface {
 	ListConfigs() ([]Configuration, error)
 	GetConfigByID(string) (Configuration, error) // Returns identified configuration
 	UpdateConfig(string, Configuration) (Configuration, error)
+	DeleteConfig(string) (Configuration, error)
 }
 
 type inMemoryDatabase struct {
@@ -91,4 +92,17 @@ func (db *inMemoryDatabase) UpdateConfig(id string, c Configuration) (Configurat
 	c.ID = id
 	db.Configurations[id] = c
 	return c, nil
+}
+
+func (db *inMemoryDatabase) DeleteConfig(id string) (Configuration, error) {
+	var result Configuration
+	// Check if configuration exists
+	config, ok := db.Configurations[id]
+	if !ok {
+		return result, errors.New(fmt.Sprintf("Configuration with id %s not found", id))
+	}
+
+	// Delete it
+	delete(db.Configurations, id)
+	return config, nil
 }

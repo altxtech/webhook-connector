@@ -110,6 +110,20 @@ func UpdateConfig(c *gin.Context) {
 	return
 }
 
+func DeleteConfig(c *gin.Context){
+	id := c.Param("id")
+	deletedConfig, err := db.DeleteConfig(id)
+	if err != nil {
+		message := fmt.Sprintf("Failed to delete config with id %s: %v", id, err)
+		response := NewAPIErrorResponse(message)
+		c.IndentedJSON(http.StatusNotFound, response)
+		return
+	}
+
+	c.IndentedJSON(http.StatusOK, deletedConfig)
+	return
+}
+
 // Initialize database
 func initDB() database.Database {
 	return database.NewInMemoryDB()
@@ -126,6 +140,7 @@ func main() {
 	router.GET("/configurations", ListConfigs)
 	router.GET("/configurations/:id", GetConfig)
 	router.PUT("/configurations/:id", UpdateConfig)
+	router.DELETE("/configurations/:id", DeleteConfig)
 
 	router.POST("/ingest/:configId", ingestWebhook)
 
