@@ -17,7 +17,7 @@ import (
 )
 
 // API Interface
-type CreateMessageRequest struct {
+type CreateConfigRequest struct {
 	// Mirrors the conf.Configuration object
 	Sink struct  {
 		Type string `json:"type"`
@@ -42,7 +42,7 @@ func helloWorld(c *gin.Context) {
 func CreateConfig(c *gin.Context) {
 
 	// Read and validate request
-	var request CreateMessageRequest
+	var request CreateConfigRequest
 	err := c.ShouldBindJSON(&request)
 	if err != nil {
 		message := fmt.Sprintf("Invalid configuration object: %v", err)
@@ -51,41 +51,15 @@ func CreateConfig(c *gin.Context) {
 		return
 	}
 
-	// Identify the sink type
-	var sinkConfig  conf.SinkConfig
-	switch request.Sink.Type {
-		case "file":
-			sinkConfig = &conf.FileSinkConfig{}
-		case "bigquery":
-			sinkConfig = &conf.BigQuerySinkConfig{}
-		default:
-			message := fmt.Sprintf("Invalid sink type %v", request.Sink.Type)
-			response := NewAPIErrorResponse(message)
-			c.IndentedJSON(http.StatusBadRequest, response)
-			return
-	}
-
-	// Validate sink config
-	err = json.Unmarshal(request.Sink.Config, sinkConfig)
+	// Create the config object 
+	newConfig, err := ConfigFromRequest(request)
 	if err != nil {
-		message := fmt.Sprintf("Failed to read confg for sink of type %s", request.Sink.Type)
+		message := fmt.Sprintf("Error creating configuration object: %v", err)
 		response := NewAPIErrorResponse(message)
 		c.IndentedJSON(http.StatusBadRequest, response)
 		return
 	}
-
-	err = sinkConfig.Validate()
-	if err != nil {
-		message := fmt.Sprintf("Invalid configuration for sink of type %s: %v", request.Sink.Type, err)
-		response := NewAPIErrorResponse(message)
-		c.IndentedJSON(http.StatusBadRequest, response)
-		return
-	}
-
-	// Create new Config
-	sink := conf.NewSink(request.Sink.Type, sinkConfig)
-	newConfig := conf.NewConfiguration(sink)
-
+	
 	// Insert into database
 	idConfig, err := db.InsertConfig(newConfig)
 	if err != nil {
@@ -97,6 +71,39 @@ func CreateConfig(c *gin.Context) {
 
 	c.IndentedJSON(http.StatusOK, idConfig)
 	return
+}
+
+func ConfigFromRequest(request CreateConfigRequest) (conf.Configuration, error) {
+
+	var config conf.Configuration
+
+	// Identify Sink type
+	var sinkConfig conf.SinkConfig
+	switch request.Sink.Type {
+		case "jsonl":
+			sinkConfig = &conf.JSONLSinkConfig{}
+		case "bigquery":
+			sinkConfig = &conf.BigQuerySinkConfig{}
+		default:
+			return config, fmt.Errorf("Invalid sink type %v", request.Sink.Type)
+	}
+
+	// Validate sink config
+	err := json.Unmarshal(request.Sink.Config, sinkConfig)
+	if err != nil {
+		return config, fmt.Errorf("Failed to read confg for sink of type %s", request.Sink.Type)
+	}
+
+	err = sinkConfig.Validate()
+	if err != nil {
+		return config, fmt.Errorf("Invalid configuration for sink of type %s: %v", request.Sink.Type, err)
+	}
+
+	// Create new Config
+	sink := conf.NewSink(request.Sink.Type, sinkConfig)
+	newConfig := conf.NewConfiguration(sink)
+
+	return newConfig, nil
 }
 
 // List configs
@@ -126,18 +133,31 @@ func GetConfig(c *gin.Context) {
 }
 
 func UpdateConfig(c *gin.Context) {
-	var updatedConfig conf.Configuration
-	err := c.ShouldBindJSON(&updatedConfig)
+	var request CreateConfigRequest
+	err := c.ShouldBindJSON(&request)
 	if err != nil {
 		c.IndentedJSON(http.StatusBadRequest, NewAPIErrorResponse("Invalid request body."))
 		return
 	}
 
 	// Create configuration object
-	id := c.Param("id")
+	updatedConfig, err := ConfigFromRequest(request)
+	if err != nil {
+		message := fmt.Sprintf("Error creating configuration object: %v", err)
+		response := NewAPIErrorResponse(message)
+		c.IndentedJSON(http.StatusBadRequest, response)
+		return
+	}
 
 	// Update on database
+	id := c.Param("id")
 	result, err := db.UpdateConfig(id, updatedConfig)
+	if err != nil {
+		message := fmt.Sprintf("Error Updating configurations: %v", err)
+		response := NewAPIErrorResponse(message)
+		c.IndentedJSON(http.StatusBadRequest, response)
+		return
+	}
 	c.IndentedJSON(http.StatusOK, result)
 	return
 }

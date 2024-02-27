@@ -15,10 +15,10 @@ func NewConfiguration(sink Sink) Configuration {
 		Sink: sink,
 	}
 }
-func (c Configuration) SetID(id string) {
+func (c *Configuration) SetID(id string) {
 	c.ID = id
 }
-func (c Configuration) SetSink(sink Sink){
+func (c *Configuration) SetSink(sink Sink){
 	c.Sink = sink
 }
 
@@ -41,11 +41,11 @@ type SinkConfig interface{
 // Implementations of SinkConfig
 
 // Local file - For testing
-type FileSinkConfig struct {
+type JSONLSinkConfig struct {
 	FilePath string `json:"file_path" firestore:"file_path"` // Absolute path, or relative to working directory of the application
 }
 
-func (f *FileSinkConfig) Validate() error {
+func (f *JSONLSinkConfig) Validate() error {
     if f.FilePath == "" {
         return errors.New("FilePath cannot be empty")
     }
