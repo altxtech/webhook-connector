@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package model;
+option go_package="github.com/altxtech/webhook-connector/src/model";
+import "google/protobuf/timestamp.proto";
+
+message Metadata {
+  google.protobuf.Timestamp received_at = 1;
+  google.protobuf.Timestamp loaded_at = 2;
+}
+
+message WebhookEvent {
+  Metadata metadata = 1;
+  string event = 2;
+}
