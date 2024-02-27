@@ -5,46 +5,32 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+
+	conf "github.com/altxtech/webhook-connector/src/configurations"
 )
 
-type Configuration struct {
-	ID        string `json:"id" firestore:"id"` // "" means unindentified configuration
-	ProjectID string `json:"project_id" firestore:"id"`
-	Dataset   string `json:"dataset" firestore:"dataset"`
-	Table     string `json:"table" firestore:"table"`
-}
-
-func NewConfiguration(projectID string, dataset string, table string) Configuration {
-	// Creates a new configuration without identity
-	return Configuration{
-		ID:        "",
-		ProjectID: projectID,
-		Dataset:   dataset,
-		Table:     table,
-	}
-}
 
 type Database interface {
-	InsertConfig(Configuration) (Configuration, error)
-	ListConfigs() ([]Configuration, error)
-	GetConfigByID(string) (Configuration, error) // Returns identified configuration
-	UpdateConfig(string, Configuration) (Configuration, error)
-	DeleteConfig(string) (Configuration, error)
+	InsertConfig(conf.Configuration) (conf.Configuration, error)
+	ListConfigs() ([]conf.Configuration, error)
+	GetConfigByID(string) (conf.Configuration, error) // Returns identified configuration
+	UpdateConfig(string, conf.Configuration) (conf.Configuration, error)
+	DeleteConfig(string) (conf.Configuration, error)
 }
 
 type inMemoryDatabase struct {
-	Configurations map[string]Configuration
+	Confs map[string]conf.Configuration
 }
 
 func NewInMemoryDB() Database {
 	return &inMemoryDatabase{
-		Configurations: map[string]Configuration{},
+		Confs: map[string]conf.Configuration{},
 	}
 }
 
-func (db *inMemoryDatabase) InsertConfig(c Configuration) (Configuration, error) {
+func (db *inMemoryDatabase) InsertConfig(c conf.Configuration) (conf.Configuration, error) {
 
-	var result Configuration
+	var result conf.Configuration
 
 	// Check if configuration is unindentified
 	if c.ID != "" {
@@ -52,15 +38,15 @@ func (db *inMemoryDatabase) InsertConfig(c Configuration) (Configuration, error)
 	}
 
 	result = c
-	result.ID = uuid.NewString()
+	result.SetID(uuid.NewString())
 
-	db.Configurations[result.ID] = result
+	db.Confs[result.ID] = result
 	return result, nil
 }
 
-func (db *inMemoryDatabase) ListConfigs() ([]Configuration, error) {
-	var configs []Configuration = []Configuration{}
-	for _, value := range db.Configurations {
+func (db *inMemoryDatabase) ListConfigs() ([]conf.Configuration, error) {
+	var configs []conf.Configuration = []conf.Configuration{}
+	for _, value := range db.Confs {
 		configs = append(configs, value)
 	}
 
@@ -68,41 +54,41 @@ func (db *inMemoryDatabase) ListConfigs() ([]Configuration, error) {
 	return configs, nil
 }
 
-func (db *inMemoryDatabase) GetConfigByID(id string) (Configuration, error) {
-	config, ok := db.Configurations[id]
+func (db *inMemoryDatabase) GetConfigByID(id string) (conf.Configuration, error) {
+	config, ok := db.Confs[id]
 	if !ok {
-		return config, fmt.Errorf("Configuration with id %s not found", id)
+		return config, fmt.Errorf("conf.Configuration with id %s not found", id)
 	}
 	return config, nil
 }
 
-func (db *inMemoryDatabase) UpdateConfig(id string, c Configuration) (Configuration, error) {
+func (db *inMemoryDatabase) UpdateConfig(id string, c conf.Configuration) (conf.Configuration, error) {
 
-	// The input Configuration must be Unidentified and existing in the database
-	var result Configuration
+	// The input conf.Configuration must be Unidentified and existing in the database
+	var result conf.Configuration
 	if c.ID != "" {
-		return result, errors.New("Configuration must be unidentified")
+		return result, errors.New("conf.Configuration must be unidentified")
 	}
 
-	_, ok := db.Configurations[id]
+	_, ok := db.Confs[id]
 	if !ok {
-		return result, errors.New("Configuration not found")
+		return result, errors.New("conf.Configuration not found")
 	}
 
 	c.ID = id
-	db.Configurations[id] = c
+	db.Confs[id] = c
 	return c, nil
 }
 
-func (db *inMemoryDatabase) DeleteConfig(id string) (Configuration, error) {
-	var result Configuration
+func (db *inMemoryDatabase) DeleteConfig(id string) (conf.Configuration, error) {
+	var result conf.Configuration
 	// Check if configuration exists
-	config, ok := db.Configurations[id]
+	config, ok := db.Confs[id]
 	if !ok {
-		return result, errors.New(fmt.Sprintf("Configuration with id %s not found", id))
+		return result, errors.New(fmt.Sprintf("conf.Configuration with id %s not found", id))
 	}
 
 	// Delete it
-	delete(db.Configurations, id)
+	delete(db.Confs, id)
 	return config, nil
 }
