@@ -39,7 +39,7 @@ func NewJSONLSink (path string) JSONLSink {
 		Path: path,
 	}
 }
-func (sink *JSONLSink) WriteRows(rows []protoreflect.ProtoMessage) error {
+func (sink JSONLSink) WriteRows(rows []protoreflect.ProtoMessage) error {
 
 	/*
 		TODO:
@@ -48,7 +48,7 @@ func (sink *JSONLSink) WriteRows(rows []protoreflect.ProtoMessage) error {
 		This is good enough for testing, tough. But should be improved in the unlikely scenario this gets used for real.
 	*/
 
-	file, err := os.OpenFile(sink.Path, os.O_APPEND|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(sink.Path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return fmt.Errorf("Failed to open file: %v", err)
 	}
