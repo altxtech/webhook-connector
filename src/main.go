@@ -7,12 +7,13 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	conf "github.com/altxtech/webhook-connector/src/configurations"
 	"github.com/altxtech/webhook-connector/src/database"
-	"github.com/altxtech/webhook-connector/src/sink"
 	"github.com/altxtech/webhook-connector/src/model"
+	"github.com/altxtech/webhook-connector/src/sink"
 	"github.com/altxtech/webhook-connector/src/utils"
 )
 
@@ -188,7 +189,7 @@ func IngestWebhook(c *gin.Context){
 	}
 
 	// Validate id exists
-	_, err := db.GetConfigByID(c.Param("id"))
+	config, err := db.GetConfigByID(c.Param("id"))
 	if err != nil {
 		message := fmt.Sprintf("Config with id %s not found.", c.Param("id"))
 		response := NewAPIErrorResponse(message)
@@ -215,8 +216,29 @@ func IngestWebhook(c *gin.Context){
 	// Set event data
 	event.Event = string(data)
 
-	// NEXT: Get the sink for this configuration
+	// Get sink for configuration
+	thisSink, err := sm.getSink(&config)	
+	if err != nil {
+		response := NewAPIErrorResponse(fmt.Sprintf("Failed to get sink for config %s: %v", config.ID, err))
+		c.IndentedJSON(http.StatusBadRequest, response)
+		return
+	}
 
+	// Write rows
+	/*
+		TODO: We're writing one row at a time.
+		We COULD write to a buffer and have the output to the sink be done in batches.
+		There are pros and cons of doing it like this. Consider.
+	*/
+	err = thisSink.WriteRows([]protoreflect.ProtoMessage{&event})
+	if err != nil {
+		response := NewAPIErrorResponse(fmt.Sprintf("Failed to write rows to sink: %v", err))
+		c.IndentedJSON(http.StatusBadRequest, response)
+		return
+	}
+
+	c.String(http.StatusOK, "Received")
+	return
 }
 
 
@@ -226,7 +248,39 @@ func initDB() database.Database {
 }
 var db database.Database = initDB()
 
-var sinkManager map[string]sink.Sink = map[string]sink.Sink{}
+// Type to manage sinks
+type SinkManager map[string]sink.Sink
+func NewSinkManager() SinkManager {
+	return SinkManager{}
+}
+func (sm SinkManager) getSink(config *conf.Configuration) (sink.Sink, error){
+	// If the sink for this configuration exists, return it.
+	// If not, build it
+
+	var result sink.Sink
+	result, ok := sm[config.ID]
+	if ok {
+		return result, nil
+	}
+
+	// Create the appriate sink based on sink type
+	switch config.Sink.Type {
+	case "jsonl":
+		jsonlSinkConfig, ok := config.Sink.Config.(*conf.JSONLSinkConfig)
+		if !ok {
+			return result, fmt.Errorf("Invalid configuration for JSONL sink.")
+		}
+		result = sink.NewJSONLSink(jsonlSinkConfig.FilePath)
+	// TODO: Bigquery
+	default:
+		return result, fmt.Errorf("Invalid sink type %s", config.Sink.Type)
+	}
+
+	// Save on map
+	sm[config.ID] = result
+	return result, nil
+}
+var sm SinkManager = NewSinkManager()
 
 func main() {
 	router := gin.Default()
