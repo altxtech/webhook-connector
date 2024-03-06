@@ -4,7 +4,9 @@ go 1.20
 
 require (
 	cloud.google.com/go/bigquery v1.59.1
+	cloud.google.com/go/firestore v1.14.0
 	github.com/gin-gonic/gin v1.9.1
+	github.com/google/uuid v1.6.0
 	google.golang.org/protobuf v1.32.0
 )
 
@@ -13,6 +15,7 @@ require (
 	cloud.google.com/go/compute v1.23.3 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v1.1.6 // indirect
+	cloud.google.com/go/longrunning v0.5.5 // indirect
 	github.com/apache/arrow/go/v14 v14.0.2 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
@@ -29,7 +32,6 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/flatbuffers v23.5.26+incompatible // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
