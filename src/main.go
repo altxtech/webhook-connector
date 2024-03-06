@@ -151,7 +151,8 @@ func UpdateConfig(c *gin.Context) {
 
 	// Update on database
 	id := c.Param("id")
-	result, err := db.UpdateConfig(id, updatedConfig)
+	updatedConfig.SetID(id)
+	result, err := db.UpdateConfig(updatedConfig)
 	if err != nil {
 		message := fmt.Sprintf("Error Updating configurations: %v", err)
 		response := NewAPIErrorResponse(message)

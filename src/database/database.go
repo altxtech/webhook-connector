@@ -1,11 +1,13 @@
 package database
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 
+	firestore "cloud.google.com/go/firestore/apiv1"
 	conf "github.com/altxtech/webhook-connector/src/configurations"
 )
 
@@ -14,7 +16,7 @@ type Database interface {
 	InsertConfig(conf.Configuration) (conf.Configuration, error)
 	ListConfigs() ([]conf.Configuration, error)
 	GetConfigByID(string) (conf.Configuration, error) // Returns identified configuration
-	UpdateConfig(string, conf.Configuration) (conf.Configuration, error)
+	UpdateConfig(conf.Configuration) (conf.Configuration, error)
 	DeleteConfig(string) (conf.Configuration, error)
 }
 
@@ -62,21 +64,20 @@ func (db *inMemoryDatabase) GetConfigByID(id string) (conf.Configuration, error)
 	return config, nil
 }
 
-func (db *inMemoryDatabase) UpdateConfig(id string, c conf.Configuration) (conf.Configuration, error) {
+func (db *inMemoryDatabase) UpdateConfig(c conf.Configuration) (conf.Configuration, error) {
 
-	// The input conf.Configuration must be Unidentified and existing in the database
+	// The input conf.Configuration must be Identified
 	var result conf.Configuration
-	if c.ID != "" {
-		return result, errors.New("conf.Configuration must be unidentified")
+	if c.ID == "" {
+		return result, errors.New("Configuration must be identified")
 	}
 
-	_, ok := db.Confs[id]
+	_, ok := db.Confs[c.ID]
 	if !ok {
-		return result, errors.New("conf.Configuration not found")
+		return result, errors.New("Configuration not found")
 	}
 
-	c.ID = id
-	db.Confs[id] = c
+	db.Confs[c.ID] = c
 	return c, nil
 }
 
@@ -91,4 +92,47 @@ func (db *inMemoryDatabase) DeleteConfig(id string) (conf.Configuration, error) 
 	// Delete it
 	delete(db.Confs, id)
 	return config, nil
+}
+
+// Firestore database
+type firestoreDatabase struct {
+	Client *firestore.Client
+}
+func NewFirestoreDatabase() (Database, error){
+	
+	var result *firestoreDatabase
+
+	// Initialize Client
+	client, err := firestore.NewClient(context.Background())
+	if err != nil {
+		return result, err
+	}
+
+	result.Client = client
+	return result, nil
+}
+func (db *firestoreDatabase) InsertConfig(config conf.Configuration) (conf.Configuration, error){
+	//TODO: Implement
+	var insertedConfig conf.Configuration
+	return insertedConfig, nil
+}
+func (db *firestoreDatabase) ListConfigs() ([]conf.Configuration, error){
+	//TODO: Implement
+	var configs []conf.Configuration
+	return configs, nil
+}
+func (db *firestoreDatabase) GetConfigByID(id string) (conf.Configuration, error){
+	//TODO: Implement
+	var config conf.Configuration
+	return config, nil
+}
+func (db *firestoreDatabase) UpdateConfig(config conf.Configuration) (conf.Configuration, error){
+	//TODO: Implement
+	var updatedConfig conf.Configuration
+	return updatedConfig, nil
+}
+func (db *firestoreDatabase) DeleteConfig(id string) (conf.Configuration, error){
+	//TODO: Implement
+	var deletedConfig conf.Configuration
+	return deletedConfig, nil
 }
