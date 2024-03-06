@@ -47,7 +47,7 @@ type JSONLSinkConfig struct {
 
 func (f *JSONLSinkConfig) Validate() error {
     if f.FilePath == "" {
-        return errors.New("FilePath cannot be empty")
+        return errors.New("file_path cannot be empty")
     }
     return nil
 }
