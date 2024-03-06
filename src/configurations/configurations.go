@@ -22,6 +22,7 @@ func (c *Configuration) SetSink(sink Sink){
 	c.Sink = sink
 }
 
+
 type Sink struct {
 	Type string `json:"type" firestore:"type"`
 	Config SinkConfig `json:"config" firestore:"config"`
@@ -45,7 +46,7 @@ type JSONLSinkConfig struct {
 	FilePath string `json:"file_path" firestore:"file_path"` // Absolute path, or relative to working directory of the application
 }
 
-func (f *JSONLSinkConfig) Validate() error {
+func (f JSONLSinkConfig) Validate() error {
     if f.FilePath == "" {
         return errors.New("file_path cannot be empty")
     }
@@ -58,7 +59,7 @@ type BigQuerySinkConfig struct {
 	Dataset   string `json:"dataset" firestore:"dataset"`
 	Table     string `json:"table" firestore:"table"`
 }
-func (b *BigQuerySinkConfig) Validate() error {
+func (b BigQuerySinkConfig) Validate() error {
     if b.ProjectID == "" {
         return errors.New("ProjectID cannot be empty")
     }
