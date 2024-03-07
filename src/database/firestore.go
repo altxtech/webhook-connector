@@ -104,7 +104,19 @@ func (db *firestoreDatabase) UpdateConfig(config conf.Configuration) (conf.Confi
 		return conf.Configuration{}, errors.New("Config ID is required")
 	}
 
-	_, err := db.Client.Collection("configurations").Doc(config.ID).Set(context.Background(), config)
+	docRef := db.Client.Collection("configurations").Doc(config.ID)
+
+	// Check if document exist
+	_, err := docRef.Get(context.Background())
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return conf.Configuration{}, fmt.Errorf("conf.Configuration with id %s not found", config.ID)
+		}
+		return conf.Configuration{}, err
+	}
+
+	// Update
+	_, err = docRef.Set(context.Background(), config)
 	if err != nil {
 		return conf.Configuration{}, err
 	}
