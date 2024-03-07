@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"log"
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -15,6 +18,17 @@ import (
 	"github.com/altxtech/webhook-connector/src/sink"
 	"github.com/altxtech/webhook-connector/src/utils"
 )
+
+// Initialization
+func initDB() (database.Database){
+	db, err := database.NewFirestoreDatabase(context.Background(), os.Getenv("PROJECT_ID"), os.Getenv("DATABASE_ID"))
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	return db
+}
+var db database.Database = initDB()
+
 
 // API Interface
 type CreateConfigRequest struct {
@@ -223,11 +237,9 @@ func IngestWebhook(c *gin.Context){
 }
 
 
-// Initialize database
-func initDB() database.Database {
-	return database.NewInMemoryDB()
-}
-var db database.Database = initDB()
+
+
+
 
 // Type to manage sinks
 type SinkManager map[string]sink.Sink
