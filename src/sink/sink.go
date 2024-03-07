@@ -19,9 +19,10 @@ import (
 var bqWriteClient *storage.BigQueryWriteClient
 func getBqWriteClient() (*storage.BigQueryWriteClient, error) {
 	if bqWriteClient == nil {
-		client, err := storage.NewBigQueryWriteClient(context.Background())
+		var err error
+		bqWriteClient, err = storage.NewBigQueryWriteClient(context.Background())
 		if err != nil {
-			return client, fmt.Errorf("Failed to create BigQueryWriteClient: %v", err)
+			return bqWriteClient, fmt.Errorf("Failed to create BigQueryWriteClient: %v", err)
 		}
 	}
 	return bqWriteClient, nil
