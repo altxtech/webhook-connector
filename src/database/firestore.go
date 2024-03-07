@@ -3,7 +3,6 @@ package database
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -37,35 +36,20 @@ func (db *firestoreDatabase) InsertConfig(config conf.Configuration) (conf.Confi
 		return conf.Configuration{}, errors.New("Can't insert identified config")
 	}
 
-
-	/*
-		We cannot insert the conf.Configuration value directly into Firestore.
-		This happens because Configuration.Sink.Config is an interface of type SinkConfig,
-		but firestore expects a concrete type.
-		
-		The workaround for that is to use the json enconding to transform the configuration
-		into a map[string]interface, which can be added to firestore.
-
-		TODO: Find a better solution, or consider modifying the schema to not requires interfaces.
-	*/
-
-	jsonContent, err := json.Marshal(config)
-	if err != nil {
-		return config, fmt.Errorf("Failed to encode value to JSON: %v", err)
-	}
-	var concreteValue map[string]interface{}
-	err = json.Unmarshal(jsonContent, &concreteValue)
-	if err != nil {
-		return config, fmt.Errorf("Failed to parse json into value: %v", err)
-	}
-
 	
-	docRef, _, err := db.Client.Collection("configurations").Add(context.Background(), concreteValue)
+	docRef, _, err := db.Client.Collection("configurations").Add(context.Background(), config)
 	if err != nil {
 		return conf.Configuration{}, err
 	}
 
 	config.SetID(docRef.ID)
+
+	// The document is initially written is a null "id" field. We have to rewrite it to set the id
+	_, err = docRef.Set(context.Background(), config)
+	if err != nil {
+		return config, fmt.Errorf("Failure setting the id in the database: %v", err)
+	}
+
 	return config, nil
 }
 

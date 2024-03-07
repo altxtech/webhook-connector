@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -20,10 +21,14 @@ func initFirestoreDB() Database {
 var firestoreDB Database = initFirestoreDB()
 
 func createDummyConfig() (conf.Configuration, error) {
-	var dummySink conf.Sink = conf.NewSink("jsonl", conf.JSONLSinkConfig{FilePath: "data/events.jsonl"})
-	var dummyConfig conf.Configuration = conf.NewConfiguration(dummySink)
+	var config conf.Configuration
+	dummySink, err := conf.NewSink("jsonl", map[string]interface{}{"file_path": "tmp/events.jsonl"})
+	if err != nil {
+		return config, fmt.Errorf("Failed to create dummySinkConfig: %v", err)
+	}
+	config = conf.NewConfiguration(dummySink)
 
-	return dummyConfig, nil
+	return config, nil
 }
 
 func TestFirestoreDB(t *testing.T){
