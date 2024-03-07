@@ -181,7 +181,7 @@ resource "google_cloud_run_service" "app" {
         }
         env {
           name  = "DATABASE_ID"
-          value = google_firestore_database.database.id
+          value = element(split(google_firestore_database.database.id, "/"), length(split(google_firestore_database.database.id, "/") - 1))
         }
         env {
           name  = "SECRET_ID"
