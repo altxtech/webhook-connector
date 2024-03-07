@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,7 +21,7 @@ type CreateConfigRequest struct {
 	// Mirrors the conf.Configuration object
 	Sink struct  {
 		Type string `json:"type"`
-		Config json.RawMessage
+		Config map[string]interface{}
 	} `json:"sink"`
 }
 
@@ -76,33 +75,14 @@ func CreateConfig(c *gin.Context) {
 
 func ConfigFromRequest(request CreateConfigRequest) (conf.Configuration, error) {
 
-	var config conf.Configuration
+	var newConfig conf.Configuration
 
-	// Identify Sink type
-	var sinkConfig conf.SinkConfig
-	switch request.Sink.Type {
-		case "jsonl":
-			sinkConfig = &conf.JSONLSinkConfig{}
-		case "bigquery":
-			sinkConfig = &conf.BigQuerySinkConfig{}
-		default:
-			return config, fmt.Errorf("Invalid sink type %v", request.Sink.Type)
-	}
-
-	// Validate sink config
-	err := json.Unmarshal(request.Sink.Config, sinkConfig)
+	// Create Sink config
+	sinkConf, err := conf.NewSink(request.Sink.Type, request.Sink.Config)
 	if err != nil {
-		return config, fmt.Errorf("Failed to read confg for sink of type %s", request.Sink.Type)
+		return newConfig, fmt.Errorf("Failed to process sink configuration: %v", err)
 	}
-
-	err = sinkConfig.Validate()
-	if err != nil {
-		return config, fmt.Errorf("Invalid configuration for sink of type %s: %v", request.Sink.Type, err)
-	}
-
-	// Create new Config
-	sink := conf.NewSink(request.Sink.Type, sinkConfig)
-	newConfig := conf.NewConfiguration(sink)
+	newConfig = conf.NewConfiguration(sinkConf)
 
 	return newConfig, nil
 }
@@ -264,20 +244,13 @@ func (sm SinkManager) getSink(config *conf.Configuration) (sink.Sink, error){
 		return result, nil
 	}
 
-	// Create the appriate sink based on sink type
-	switch config.Sink.Type {
-	case "jsonl":
-		jsonlSinkConfig, ok := config.Sink.Config.(*conf.JSONLSinkConfig)
-		if !ok {
-			return result, fmt.Errorf("Invalid configuration for JSONL sink.")
-		}
-		result = sink.NewJSONLSink(jsonlSinkConfig.FilePath)
-	// TODO: Bigquery
-	default:
-		return result, fmt.Errorf("Invalid sink type %s", config.Sink.Type)
+	// Create the appriate sink based on sink
+	result, err := sink.NewSink(config.Sink)
+	if err != nil {
+		return result, fmt.Errorf("Failed to create new sink: %v", err)
 	}
 
-	// Save on map
+	// Register new sink
 	sm[config.ID] = result
 	return result, nil
 }

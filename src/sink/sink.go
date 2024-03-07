@@ -12,12 +12,56 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 	"cloud.google.com/go/bigquery/storage/managedwriter/adapt"
 	"google.golang.org/protobuf/encoding/protojson"
+	conf "github.com/altxtech/webhook-connector/src/configurations"
 )
+
+// Clients
+var bqWriteClient *storage.BigQueryWriteClient
+func getBqWriteClient() (*storage.BigQueryWriteClient, error) {
+	if bqWriteClient == nil {
+		client, err := storage.NewBigQueryWriteClient(context.Background())
+		if err != nil {
+			return client, fmt.Errorf("Failed to create BigQueryWriteClient: %v", err)
+		}
+	}
+	return bqWriteClient, nil
+}
 
 
 // Sink type
 type Sink interface {
 	 WriteRows([]protoreflect.ProtoMessage) error
+}
+
+func NewSink(config conf.Sink) (Sink, error){
+
+	// Check if config is valid
+	err := config.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("Invalid sink: %v", err)
+	}
+
+	// Create the appropriate sink based on type
+	switch config.Type{
+	case "jsonl":
+		path := config.Config["file_path"].(string) 
+		return NewJSONLSink(path), nil
+	case "bigquery":
+		project := config.Config["project"].(string)
+		dataset := config.Config["dataset"].(string)
+		table := config.Config["table"].(string)
+		client, err := getBqWriteClient()
+		if err != nil {
+			return nil, fmt.Errorf("Failed to retrieve BigQueryWriteClient: %v", err)
+		}
+		s, err := NewBigQuerySink(project, dataset, table, "webhook-connector", client)
+		if err != nil {
+			return s, fmt.Errorf("Failed to create bigQuerySink: %v", err)
+		}
+		return s, nil
+	default:
+		return nil, fmt.Errorf("Unsuported sink type '%s'", config.Type)
+	}
 }
 
 

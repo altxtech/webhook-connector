@@ -1,8 +1,6 @@
 package configurations
 
-import (
-	"errors"
-)
+import "fmt"
 
 type Configuration struct {
 	ID        string `json:"id" firestore:"id"` // "" means unindentified configuration
@@ -25,51 +23,66 @@ func (c *Configuration) SetSink(sink Sink){
 
 type Sink struct {
 	Type string `json:"type" firestore:"type"`
-	Config SinkConfig `json:"config" firestore:"config"`
+	Config map[string]interface{} `json:"config" firestore:"config"`
 }
-func NewSink(t string, config SinkConfig) Sink {
-	return Sink {
+func NewSink(t string, config map[string]interface{}) (Sink, error) {
+	newSink := Sink {
 		Type: t,
 		Config: config,
 	}
+
+	err := newSink.Validate()
+	if err != nil {
+		return newSink, fmt.Errorf("Invalid sink configuration: %v", err)
+	}
+
+	return newSink, nil
+}
+func (s Sink) Validate() error{
+	/*
+		This method is necessary for 2 reasons:
+
+		1. The type attribute needs to match a supported Sink Type
+		2. The Config attribute must be valid for for the chosen sink type
+	*/
+
+	switch s.Type {
+	case "jsonl":
+		err := s.paramIsString("file_path")
+		if err != nil {
+			return err
+		}
+
+	case "bigquery":
+		err := s.paramIsString("project")
+		if err != nil {
+			return err
+		}
+		err = s.paramIsString("dataset")
+		if err != nil {
+			return err
+		}
+		err = s.paramIsString("table")
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("%s is not a supported sink type.", s.Type)
+	}
+
+	return nil
 }
 
-type SinkConfig interface{
-	Validate() error
-}
-
-
-// Implementations of SinkConfig
-
-// Local file - For testing
-type JSONLSinkConfig struct {
-	FilePath string `json:"file_path" firestore:"file_path"` // Absolute path, or relative to working directory of the application
-}
-
-func (f JSONLSinkConfig) Validate() error {
-    if f.FilePath == "" {
-        return errors.New("file_path cannot be empty")
-    }
-    return nil
-}
-
-// BigQuery
-type BigQuerySinkConfig struct {
-	ProjectID string `json:"project_id" firestore:"id"`
-	Dataset   string `json:"dataset" firestore:"dataset"`
-	Table     string `json:"table" firestore:"table"`
-}
-func (b BigQuerySinkConfig) Validate() error {
-    if b.ProjectID == "" {
-        return errors.New("ProjectID cannot be empty")
-    }
-    if b.Dataset == "" {
-        return errors.New("Dataset cannot be empty")
-    }
-    if b.Table == "" {
-        return errors.New("Table cannot be empty")
-    }
-
-	// TODO: Use the Bigquery API to check if the table exists and that the connector has the appropriate permissions
-    return nil
+func (s Sink) paramIsString(key string) error {
+	
+	val, ok := s.Config[key]
+	if !ok {
+		return fmt.Errorf("Missing required parameter '%s'.", key)
+	}
+	_, ok = val.(string)
+	if !ok {
+		return fmt.Errorf("Parameter %s must be a string.", key)
+	}
+	return nil
+	
 }
