@@ -21,7 +21,7 @@ import (
 
 // Initialization
 func initDB() (database.Database){
-	db, err := database.NewFirestoreDatabase(context.Background(), os.Getenv("PROJECT_ID"), os.Getenv("DATABASE_ID"))
+	db, err := database.NewFirestoreDatabase(context.Background(), os.Getenv("DATABASE_ID"))
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}

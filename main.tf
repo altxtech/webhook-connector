@@ -172,16 +172,12 @@ resource "google_cloud_run_service" "app" {
 
         image = docker_registry_image.image.name
         env {
-          name  = "PROJECT_ID"
-          value = var.project_id
-        }
-        env {
           name  = "ENV"
           value = var.env
         }
         env {
           name  = "DATABASE_ID"
-          value = element(split(google_firestore_database.database.id, "/"), length(split(google_firestore_database.database.id, "/") - 1))
+          value = google_firestore_database.database.id
         }
         env {
           name  = "SECRET_ID"

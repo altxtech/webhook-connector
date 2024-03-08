@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/api/iterator"
@@ -20,15 +21,33 @@ type firestoreDatabase struct {
 }
 
 // NewFirestoreDatabase creates a new instance of FirestoreDatabase.
-func NewFirestoreDatabase(ctx context.Context, projectId string, databaseID string) (Database, error) {
-	client, err := firestore.NewClientWithDatabase(ctx, projectId, databaseID)
+func NewFirestoreDatabase(ctx context.Context, databaseID string) (Database, error) {
+	
+	// database id in the format  projects/{{project}}/databases/{{name}}
+	var firestoreDB Database
+	projectID, databaseID, err := parseDatabaseID(databaseID)
 	if err != nil {
-		return nil, err
+		return firestoreDB, fmt.Errorf("Error parsing database id: %v", err)
+	}
+
+	client, err := firestore.NewClientWithDatabase(ctx, projectID, databaseID)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating firestore client: %v", err)
 	}
 
 	return &firestoreDatabase{
 		Client: client,
 	}, nil
+}
+
+func parseDatabaseID(id string) (string, string ,error) {
+	parts := strings.Split(id, "/")
+
+	if (len(parts) != 4) || (parts[0] != "projects") || (parts[2] != "databases") {
+		return "", "", fmt.Errorf("Invalid database id: %s.", id)
+	}
+	
+	return parts[1], parts[3], nil
 }
 
 func (db *firestoreDatabase) InsertConfig(config conf.Configuration) (conf.Configuration, error) {
