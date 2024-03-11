@@ -19,6 +19,7 @@ import (
 // Sink type
 type Sink interface {
 	 WriteRows([]protoreflect.ProtoMessage) error
+	 Close() error
 }
 
 func NewSink(config conf.Sink) (Sink, error){
@@ -96,6 +97,9 @@ func (sink JSONLSink) WriteRows(rows []protoreflect.ProtoMessage) error {
 
 	return nil
 }
+func (sink JSONLSink) Close() error {
+	return nil
+}
 
 // BigQuery Sink
 type bigQuerySink struct {
@@ -170,5 +174,13 @@ func (sink *bigQuerySink) WriteRows(rows []protoreflect.ProtoMessage,) error {
 		return fmt.Errorf("Error appending rows: %v", err)
 	}
 
+	return nil
+}
+func (sink *bigQuerySink) Close() error {
+
+	err := sink.client.Close()
+	if err != nil {
+		return fmt.Errorf("Error closing client: %v", err)
+	}
 	return nil
 }
