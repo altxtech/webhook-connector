@@ -7,6 +7,8 @@ import "google/protobuf/timestamp.proto";
 message Metadata {
   google.protobuf.Timestamp received_at = 1;
   google.protobuf.Timestamp loaded_at = 2;
+  string source_id = 3;
+  string source_name = 4;
 }
 
 message WebhookEvent {
