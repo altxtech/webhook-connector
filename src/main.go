@@ -33,6 +33,7 @@ var db database.Database = initDB()
 // API Interface
 type CreateConfigRequest struct {
 	// Mirrors the conf.Configuration object
+	Name string `json:"string"`
 	Sink struct  {
 		Type string `json:"type"`
 		Config map[string]interface{}
@@ -96,7 +97,7 @@ func ConfigFromRequest(request CreateConfigRequest) (conf.Configuration, error) 
 	if err != nil {
 		return newConfig, fmt.Errorf("Failed to process sink configuration: %v", err)
 	}
-	newConfig = conf.NewConfiguration(sinkConf)
+	newConfig = conf.NewConfiguration(request.Name, sinkConf)
 
 	return newConfig, nil
 }
@@ -154,6 +155,16 @@ func UpdateConfig(c *gin.Context) {
 		c.IndentedJSON(http.StatusBadRequest, response)
 		return
 	}
+
+	// If there is an active sink for this configuration, end it
+	_, err = sm.terminateSinkIfExists(id)
+	if err != nil {
+		message := fmt.Sprintf("Error deleting existing sink for configuration: %v", err)
+		response := NewAPIErrorResponse(message)
+		c.IndentedJSON(http.StatusBadRequest, response)
+		return
+	}
+
 	c.IndentedJSON(http.StatusOK, result)
 	return
 }
@@ -191,6 +202,8 @@ func IngestWebhook(c *gin.Context){
 		c.IndentedJSON(http.StatusNotFound, response)
 		return
 	}
+	event.Metadata.SourceId = config.ID
+	event.Metadata.SourceName = config.Name
 	
 	// Read body data
 	data, err := io.ReadAll(c.Request.Body) 
@@ -265,6 +278,24 @@ func (sm SinkManager) getSink(config *conf.Configuration) (sink.Sink, error){
 	// Register new sink
 	sm[config.ID] = result
 	return result, nil
+}
+func (sm SinkManager) terminateSinkIfExists(id string) (sink.Sink, error){
+
+	/*
+		Terminate a sink if it exists.
+		Returns a copy of the terminated sink.
+	*/
+
+	var termSink sink.Sink
+	termSink, ok := sm[id]
+	if ok {
+		err := termSink.Close()
+		if err != nil {
+			return termSink, fmt.Errorf("Error terminating sink: %v", err)
+		}
+		delete(sm, id)
+	}
+	return termSink, nil
 }
 var sm SinkManager = NewSinkManager()
 
