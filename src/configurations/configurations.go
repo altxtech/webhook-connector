@@ -1,16 +1,25 @@
 package configurations
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 type Configuration struct {
 	ID        string `json:"id" firestore:"id"` // "" means unindentified configuration
+	Name string `json:"name" firestore:"name"`
 	Sink Sink `json:"sink" firestore:"sink"`
+	CreatedAt time.Time `json:"created_at" firestore:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" firestore:"updated_at"`
 }
-func NewConfiguration(sink Sink) Configuration {
+func NewConfiguration(name string, sink Sink) Configuration {
 	// Creates a new configuration without identity
 	return Configuration{
 		ID:        "",
+		Name: name,
 		Sink: sink,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 }
 func (c *Configuration) SetID(id string) {
