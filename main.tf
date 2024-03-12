@@ -83,8 +83,13 @@ resource "google_artifact_registry_repository" "repo" {
 
 
 # 2.2 BUILD AND PUSH IMAGE
+
+locals {
+  source_hash = sha1(join("", [for f in fileset(path.cwd, "src/*") : filesha1(f)]))
+}
+
 resource "docker_image" "build_image" {
-  name = "${var.region}-docker.pkg.dev/${var.project_id}/${var.service_name}-${var.env}/${var.service_name}-${var.env}"
+  name = "${var.region}-docker.pkg.dev/${var.project_id}/${var.service_name}-${var.env}/${var.service_name}-${var.env}:${locals.source_hash}"
   build {
     context = "src"
   }
@@ -94,7 +99,7 @@ resource "docker_image" "build_image" {
 resource "docker_registry_image" "image" {
   name = docker_image.build_image.name
   triggers = {
-    "source_code_changes" = sha1(join("", [for f in fileset(path.cwd, "src/*") : filesha1(f)]))
+    "source_code_changes" = locals.source_hash
   }
 }
 # 2.3 SERVICE ACCOUNT
