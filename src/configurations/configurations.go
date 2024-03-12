@@ -18,8 +18,8 @@ func NewConfiguration(name string, sink Sink) Configuration {
 		ID:        "",
 		Name: name,
 		Sink: sink,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
 	}
 }
 func (c *Configuration) SetID(id string) {

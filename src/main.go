@@ -31,9 +31,9 @@ var db database.Database = initDB()
 
 
 // API Interface
-type CreateConfigRequest struct {
-	// Mirrors the conf.Configuration object
-	Name string `json:"string"`
+type ConfigOperationRequest struct {
+	// Request for creating new configurations and updating new ones
+	Name string `json:"name"`
 	Sink struct  {
 		Type string `json:"type"`
 		Config map[string]interface{}
@@ -57,7 +57,7 @@ func helloWorld(c *gin.Context) {
 func CreateConfig(c *gin.Context) {
 
 	// Read and validate request
-	var request CreateConfigRequest
+	var request ConfigOperationRequest
 	err := c.ShouldBindJSON(&request)
 	if err != nil {
 		message := fmt.Sprintf("Invalid configuration object: %v", err)
@@ -88,7 +88,7 @@ func CreateConfig(c *gin.Context) {
 	return
 }
 
-func ConfigFromRequest(request CreateConfigRequest) (conf.Configuration, error) {
+func ConfigFromRequest(request ConfigOperationRequest) (conf.Configuration, error) {
 
 	var newConfig conf.Configuration
 
@@ -129,13 +129,23 @@ func GetConfig(c *gin.Context) {
 }
 
 func UpdateConfig(c *gin.Context) {
-	var request CreateConfigRequest
+	var request ConfigOperationRequest
 	err := c.ShouldBindJSON(&request)
 	if err != nil {
 		c.IndentedJSON(http.StatusBadRequest, NewAPIErrorResponse("Invalid request body."))
 		return
 	}
 
+	// Retrieve the existing configuration
+	id := c.Param("id")
+	oldConfig, err := db.GetConfigByID(id)
+	if err != nil {
+		message := fmt.Sprintf("Error retrieving existing configuration: %v", err)
+		response := NewAPIErrorResponse(message)
+		c.IndentedJSON(http.StatusBadRequest, response)
+		return
+	}
+	
 	// Create configuration object
 	updatedConfig, err := ConfigFromRequest(request)
 	if err != nil {
@@ -145,9 +155,10 @@ func UpdateConfig(c *gin.Context) {
 		return
 	}
 
-	// Update on database
-	id := c.Param("id")
+	// Set inherited fields from existing config
 	updatedConfig.SetID(id)
+	updatedConfig.CreatedAt = oldConfig.CreatedAt
+
 	result, err := db.UpdateConfig(updatedConfig)
 	if err != nil {
 		message := fmt.Sprintf("Error Updating configurations: %v", err)
