@@ -14,7 +14,7 @@ type Database interface {
 	InsertConfig(conf.Configuration) (conf.Configuration, error)
 	ListConfigs() ([]conf.Configuration, error)
 	GetConfigByID(string) (conf.Configuration, error) // Returns identified configuration
-	UpdateConfig(string, conf.Configuration) (conf.Configuration, error)
+	UpdateConfig(conf.Configuration) (conf.Configuration, error)
 	DeleteConfig(string) (conf.Configuration, error)
 }
 
@@ -62,21 +62,20 @@ func (db *inMemoryDatabase) GetConfigByID(id string) (conf.Configuration, error)
 	return config, nil
 }
 
-func (db *inMemoryDatabase) UpdateConfig(id string, c conf.Configuration) (conf.Configuration, error) {
+func (db *inMemoryDatabase) UpdateConfig(c conf.Configuration) (conf.Configuration, error) {
 
-	// The input conf.Configuration must be Unidentified and existing in the database
+	// The input conf.Configuration must be Identified
 	var result conf.Configuration
-	if c.ID != "" {
-		return result, errors.New("conf.Configuration must be unidentified")
+	if c.ID == "" {
+		return result, errors.New("Configuration must be identified")
 	}
 
-	_, ok := db.Confs[id]
+	_, ok := db.Confs[c.ID]
 	if !ok {
-		return result, errors.New("conf.Configuration not found")
+		return result, errors.New("Configuration not found")
 	}
 
-	c.ID = id
-	db.Confs[id] = c
+	db.Confs[c.ID] = c
 	return c, nil
 }
 

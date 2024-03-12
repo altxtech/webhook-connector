@@ -1,23 +1,55 @@
 package sink
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"log"
 	"os"
-	storage "cloud.google.com/go/bigquery/storage/apiv1"
-	storagepb "cloud.google.com/go/bigquery/storage/apiv1/storagepb"
+
+	"cloud.google.com/go/bigquery/storage/managedwriter"
+	"cloud.google.com/go/bigquery/storage/managedwriter/adapt"
+	conf "github.com/altxtech/webhook-connector/src/configurations"
+	"github.com/altxtech/webhook-connector/src/model"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
-	"cloud.google.com/go/bigquery/storage/managedwriter/adapt"
-	"google.golang.org/protobuf/encoding/protojson"
 )
-
 
 // Sink type
 type Sink interface {
 	 WriteRows([]protoreflect.ProtoMessage) error
+	 Close() error
+}
+
+func NewSink(config conf.Sink) (Sink, error){
+
+	// Check if config is valid
+	err := config.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("Invalid sink: %v", err)
+	}
+
+	// Create the appropriate sink based on type
+	switch config.Type{
+	case "jsonl":
+		path := config.Config["file_path"].(string) 
+		return NewJSONLSink(path), nil
+	case "bigquery":
+		project := config.Config["project"].(string)
+		dataset := config.Config["dataset"].(string)
+		table := config.Config["table"].(string)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to retrieve BigQueryWriteClient: %v", err)
+		}
+		s, err := NewBigQuerySink(project, dataset, table, "webhook-connector")
+		if err != nil {
+			return s, fmt.Errorf("Failed to create bigQuerySink: %v", err)
+		}
+		return s, nil
+	default:
+		return nil, fmt.Errorf("Unsuported sink type '%s'", config.Type)
+	}
 }
 
 
@@ -39,7 +71,7 @@ func NewJSONLSink (path string) JSONLSink {
 		Path: path,
 	}
 }
-func (sink *JSONLSink) WriteRows(rows []protoreflect.ProtoMessage) error {
+func (sink JSONLSink) WriteRows(rows []protoreflect.ProtoMessage) error {
 
 	/*
 		TODO:
@@ -48,7 +80,7 @@ func (sink *JSONLSink) WriteRows(rows []protoreflect.ProtoMessage) error {
 		This is good enough for testing, tough. But should be improved in the unlikely scenario this gets used for real.
 	*/
 
-	file, err := os.OpenFile(sink.Path, os.O_APPEND|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(sink.Path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return fmt.Errorf("Failed to open file: %v", err)
 	}
@@ -65,6 +97,9 @@ func (sink *JSONLSink) WriteRows(rows []protoreflect.ProtoMessage) error {
 
 	return nil
 }
+func (sink JSONLSink) Close() error {
+	return nil
+}
 
 // BigQuery Sink
 type bigQuerySink struct {
@@ -72,26 +107,51 @@ type bigQuerySink struct {
 	Dataset string
 	Table string
 	Trace string
-	Client *storage.BigQueryWriteClient
-	Stream storagepb.BigQueryWrite_AppendRowsClient
+	client *managedwriter.Client
+	stream *managedwriter.ManagedStream
 }
 
-func NewBigQuerySink( project string, dataset string, table string, trace string, client *storage.BigQueryWriteClient) (Sink, error) {
+func NewBigQuerySink( project string, dataset string, table string, trace string) (Sink, error) {
 	
 	var sink *bigQuerySink
-	
-	stream, err := client.AppendRows(context.Background())
+
+	// Create bigquery client
+	client, err := managedwriter.NewClient(context.Background(), project)
 	if err != nil {
-		return sink, err
+		return sink, fmt.Errorf("Error creating Bigquery Writer: %v", err)
+	}
+	
+
+	// Get the descriptor for the event message
+	/*
+		When I want to generalize to different many schemas...
+		Create a descriptor based on the schema configuration.
+	*/
+	m := &model.WebhookEvent{}
+	descriptor, err := adapt.NormalizeDescriptor(m.ProtoReflect().Descriptor())
+	if err != nil {
+		return sink, fmt.Errorf("Failed to get prot descriptor: %v", err)
 	}
 
+	// Create managed stream
+	tableName := fmt.Sprintf("projects/%s/datasets/%s/tables/%s", project, dataset, table)
+	stream, err := client.NewManagedStream(
+		context.Background(),
+		managedwriter.WithDestinationTable(tableName),
+		managedwriter.WithSchemaDescriptor(descriptor),
+	)
+	if err != nil {
+		return sink, fmt.Errorf("Failed to create managed stream: %v", err)
+	}
+
+	// Construct the sink object
 	sink = &bigQuerySink{
 		Project: project,
 		Dataset: dataset,
 		Table: table,
 		Trace: trace,
-		Client: client,
-		Stream: stream,
+		client: client,
+		stream: stream,
 	}
 
 	return sink, nil
@@ -101,58 +161,29 @@ func NewBigQuerySink( project string, dataset string, table string, trace string
 
 func (sink *bigQuerySink) WriteRows(rows []protoreflect.ProtoMessage,) error {
 
-
-	// get the stream by calling AppendRows
-	log.Println("calling AppendRows...")
-
-	// serialize the rows
-	log.Println("marshalling the rows...")
-	var opts proto.MarshalOptions
-	var data [][]byte
-	for _, row := range rows {
-		buf, err := opts.Marshal(row)
+	// Encode the messages
+	encoded := make([][]byte, len(rows))
+	for k, v := range rows {
+		b, err := proto.Marshal(v)
 		if err != nil {
-			return err
+			return fmt.Errorf("Error marshalling rows: %v", err)
 		}
-		data = append(data, buf)
+		encoded[k] = b
 	}
 
-	// send the rows to bigquery
-	descriptor := getDescriptor(rows[0])
-	log.Println("sending the data...")
-	err := sink.Stream.Send(&storagepb.AppendRowsRequest{
-		WriteStream: fmt.Sprintf("projects/%s/datasets/%s/tables/%s/_default", sink.Project, sink.Dataset, sink.Table),
-		TraceId:     sink.Trace, // identifies this client
-		Rows: &storagepb.AppendRowsRequest_ProtoRows{
-			ProtoRows: &storagepb.AppendRowsRequest_ProtoData{
-				// protocol buffer schema
-				WriterSchema: &storagepb.ProtoSchema{
-					ProtoDescriptor: descriptor,
-				},
-				// protocol buffer data
-				Rows: &storagepb.ProtoRows{
-					SerializedRows: data, // serialized protocol buffer data
-				},
-			},
-		},
-	})
+	result, err := sink.stream.AppendRows(context.Background(), encoded)
+	_, err = result.GetResult(context.Background())
 	if err != nil {
-		return err
+		return fmt.Errorf("Error appending rows: %v", err)
 	}
 
-	// get the response, which will tell us whether it worked
-	log.Println("waiting for response...")
-	r, err := sink.Stream.Recv()
+	return nil
+}
+func (sink *bigQuerySink) Close() error {
+
+	err := sink.client.Close()
 	if err != nil {
-		return err
+		return fmt.Errorf("Error closing client: %v", err)
 	}
-
-	if rErr := r.GetError(); rErr != nil {
-		return fmt.Errorf ("result was error: %v", rErr)
-	} else if rResult := r.GetAppendResult(); rResult != nil {
-		log.Println("Append rows sucessfull")
-	}
-
-	log.Println("done")
 	return nil
 }

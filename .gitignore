@@ -29,3 +29,6 @@ go.work
 # some folder
 tmp
 creds
+
+# Environment variables
+*.env

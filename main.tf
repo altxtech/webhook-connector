@@ -17,13 +17,13 @@ There should be a separate workflow to build, push and deploy the images.
 
 # 1.0 BACKEND
 terraform {
- backend "gcs" {}
- required_providers {
-	 docker = {
-		 source  = "kreuzwerker/docker"
-		 version = "3.0.2"
-	 }
- }
+  backend "gcs" {}
+  required_providers {
+    docker = {
+      source  = "kreuzwerker/docker"
+      version = "3.0.2"
+    }
+  }
 }
 
 # 1.1 VARIABLES
@@ -46,15 +46,15 @@ variable "env" {
   default     = "dev"
 }
 
-variable "secret_value"{
-	description = "Value to be set to the Secret Manager Secret"
-	default = "secret-data"
-	sensitive = true
+variable "secret_value" {
+  description = "Value to be set to the Secret Manager Secret"
+  default     = "secret-data"
+  sensitive   = true
 }
 
 variable "gcloud_access_token" {
-	description = "Access token of the gcloud CLI. Needed for docker auth"
-	sensitive = true
+  description = "Access token of the gcloud CLI. Needed for docker auth"
+  sensitive   = true
 }
 
 # 1.2 PROVIDERS
@@ -64,12 +64,12 @@ provider "google" {
 }
 
 provider "docker" {
-	host = "unix:///var/run/docker.sock"
-	registry_auth {
-	  address = "${var.region}-docker.pkg.dev"
-	  username = "oauth2accesstoken"
-	  password = var.gcloud_access_token
-	}
+  host = "unix:///var/run/docker.sock"
+  registry_auth {
+    address  = "${var.region}-docker.pkg.dev"
+    username = "oauth2accesstoken"
+    password = var.gcloud_access_token
+  }
 }
 
 # 2 RESOURCES
@@ -83,18 +83,23 @@ resource "google_artifact_registry_repository" "repo" {
 
 
 # 2.2 BUILD AND PUSH IMAGE
+
+locals {
+  source_hash = sha1(join("", [for f in fileset(path.cwd, "src/*") : filesha1(f)]))
+}
+
 resource "docker_image" "build_image" {
-	name = "${var.region}-docker.pkg.dev/${var.project_id}/${var.service_name}-${var.env}/${var.service_name}-${var.env}"
-	build {
-		context = "src"
-	}
+  name = "${var.region}-docker.pkg.dev/${var.project_id}/${var.service_name}-${var.env}/${var.service_name}-${var.env}:${locals.source_hash}"
+  build {
+    context = "src"
+  }
 }
 
 
 resource "docker_registry_image" "image" {
-  name = docker_image.build_image.name
+  name = "${docker_image.build_image.name}:${locals.source_hash}"
   triggers = {
-	  "source_code_changes" = sha1(join("", [for f in fileset(path.cwd, "src/*") : filesha1(f)]))
+    "source_code_changes" = locals.source_hash
   }
 }
 # 2.3 SERVICE ACCOUNT
@@ -110,7 +115,7 @@ resource "google_secret_manager_secret" "secret" {
   secret_id = "${var.service_name}-${var.env}-secret"
 
   replication {
-	  auto{}
+    auto {}
   }
 }
 
@@ -164,7 +169,7 @@ resource "google_project_iam_binding" "db_access" {
 # Define a Google Cloud Run service
 resource "google_cloud_run_service" "app" {
   name     = "${var.service_name}-${var.env}"
-  location = var.region 
+  location = var.region
 
   template {
     spec {
