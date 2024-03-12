@@ -140,6 +140,9 @@ func NewBigQuerySink( project string, dataset string, table string, trace string
 		managedwriter.WithDestinationTable(tableName),
 		managedwriter.WithSchemaDescriptor(descriptor),
 	)
+	if err != nil {
+		return sink, fmt.Errorf("Failed to create managed stream: %v", err)
+	}
 
 	// Construct the sink object
 	sink = &bigQuerySink{
