@@ -47,9 +47,10 @@ type ConfigOperationRequest struct {
 
 type ConfigCreationRestul struct {
 	// Request for creating new configurations and updating new ones
+	ID string `json:"id"`
 	Name string `json:"name"`
 	UseKey bool `json:"use_key"`
-	Key string `json:"string"`
+	Key string `json:"key"`
 	Sink struct  {
 		Type string `json:"type"`
 		Config map[string]interface{}
@@ -100,6 +101,13 @@ func CreateConfig(c *gin.Context) {
 		return
 	}
 
+	result := &ConfigCreationRestul{
+		ID: idConfig.ID,
+		Name: idConfig.Name,
+		UseKey: idConfig.UseKey,
+		Sink: struct{Type string "json:\"type\""; Config map[string]interface{}}(idConfig.Sink),
+	}
+
 	// Create a webhook key
 	if request.UseKey {
 		key, err := GenerateRandomString(24)
@@ -118,10 +126,11 @@ func CreateConfig(c *gin.Context) {
 			c.IndentedJSON(http.StatusInternalServerError, response)
 			return
 		}
+		result.Key = key
 	}
-	
 
-	c.IndentedJSON(http.StatusOK, idConfig)
+
+	c.IndentedJSON(http.StatusOK, result)
 	return
 }
 
@@ -134,7 +143,7 @@ func ConfigFromRequest(request ConfigOperationRequest) (conf.Configuration, erro
 	if err != nil {
 		return newConfig, fmt.Errorf("Failed to process sink configuration: %v", err)
 	}
-	newConfig = conf.NewConfiguration(request.Name, sinkConf)
+	newConfig = conf.NewConfiguration(request.Name, sinkConf, request.UseKey)
 
 	return newConfig, nil
 }
