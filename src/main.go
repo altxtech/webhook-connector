@@ -49,7 +49,7 @@ type ConfigCreationRestul struct {
 	// Request for creating new configurations and updating new ones
 	Name string `json:"name"`
 	UseKey bool `json:"use_key"`
-	Key string `json:"string"`
+	Key string `json:"key"`
 	Sink struct  {
 		Type string `json:"type"`
 		Config map[string]interface{}
