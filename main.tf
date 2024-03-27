@@ -194,11 +194,7 @@ resource "google_cloud_run_service" "app" {
   }
 }
 
-/*
 # 2.7 EXPOSE THE SERVICE
-
-# This block will make the service public
-# Uncomment this block for public facing services or testing enviroments
 
 data "google_iam_policy" "noauth" {
   binding {
@@ -221,4 +217,3 @@ resource "google_cloud_run_service_iam_policy" "noauth" {
 output "service_url" {
   value = google_cloud_run_service.app.status[0].url
 }
-*/
