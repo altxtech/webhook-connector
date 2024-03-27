@@ -47,6 +47,7 @@ type ConfigOperationRequest struct {
 
 type ConfigCreationRestul struct {
 	// Request for creating new configurations and updating new ones
+	ID string `json:"id"`
 	Name string `json:"name"`
 	UseKey bool `json:"use_key"`
 	Key string `json:"key"`
@@ -101,6 +102,7 @@ func CreateConfig(c *gin.Context) {
 	}
 
 	result := &ConfigCreationRestul{
+		ID: idConfig.ID,
 		Name: idConfig.Name,
 		UseKey: idConfig.UseKey,
 		Sink: struct{Type string "json:\"type\""; Config map[string]interface{}}(idConfig.Sink),
