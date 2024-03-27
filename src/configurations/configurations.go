@@ -14,11 +14,12 @@ type Configuration struct {
 	CreatedAt time.Time `json:"created_at" firestore:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" firestore:"updated_at"`
 }
-func NewConfiguration(name string, sink Sink) Configuration {
+func NewConfiguration(name string, sink Sink, useKey bool) Configuration {
 	// Creates a new configuration without identity
 	return Configuration{
 		ID:        "",
 		Name: name,
+		UseKey: useKey,
 		Sink: sink,
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
