@@ -100,6 +100,12 @@ func CreateConfig(c *gin.Context) {
 		return
 	}
 
+	result := &ConfigCreationRestul{
+		Name: idConfig.Name,
+		UseKey: idConfig.UseKey,
+		Sink: struct{Type string "json:\"type\""; Config map[string]interface{}}(idConfig.Sink),
+	}
+
 	// Create a webhook key
 	if request.UseKey {
 		key, err := GenerateRandomString(24)
@@ -118,10 +124,11 @@ func CreateConfig(c *gin.Context) {
 			c.IndentedJSON(http.StatusInternalServerError, response)
 			return
 		}
+		result.Key = key
 	}
-	
 
-	c.IndentedJSON(http.StatusOK, idConfig)
+
+	c.IndentedJSON(http.StatusOK, result)
 	return
 }
 
