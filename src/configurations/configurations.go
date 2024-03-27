@@ -7,6 +7,8 @@ import (
 
 type Configuration struct {
 	ID        string `json:"id" firestore:"id"` // "" means unindentified configuration
+	UseKey bool `json:"use_key" firestore:"use_key"`
+	KeyHash string `json:"-" firestore:"key_hash"`
 	Name string `json:"name" firestore:"name"`
 	Sink Sink `json:"sink" firestore:"sink"`
 	CreatedAt time.Time `json:"created_at" firestore:"created_at"`
@@ -27,6 +29,9 @@ func (c *Configuration) SetID(id string) {
 }
 func (c *Configuration) SetSink(sink Sink){
 	c.Sink = sink
+}
+func (c *Configuration) SetKeyHash(keyHash string){
+	c.KeyHash = keyHash
 }
 
 

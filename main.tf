@@ -89,7 +89,7 @@ locals {
 }
 
 resource "docker_image" "build_image" {
-  name = "${var.region}-docker.pkg.dev/${var.project_id}/${var.service_name}-${var.env}/${var.service_name}-${var.env}:${locals.source_hash}"
+  name = "${var.region}-docker.pkg.dev/${var.project_id}/${var.service_name}-${var.env}/${var.service_name}-${var.env}:${local.source_hash}"
   build {
     context = "src"
   }
@@ -97,9 +97,9 @@ resource "docker_image" "build_image" {
 
 
 resource "docker_registry_image" "image" {
-  name = "${docker_image.build_image.name}:${locals.source_hash}"
+  name = "${docker_image.build_image.name}:${local.source_hash}"
   triggers = {
-    "source_code_changes" = locals.source_hash
+    "source_code_changes" = local.source_hash
   }
 }
 # 2.3 SERVICE ACCOUNT
@@ -194,11 +194,7 @@ resource "google_cloud_run_service" "app" {
   }
 }
 
-/*
 # 2.7 EXPOSE THE SERVICE
-
-# This block will make the service public
-# Uncomment this block for public facing services or testing enviroments
 
 data "google_iam_policy" "noauth" {
   binding {
@@ -221,4 +217,3 @@ resource "google_cloud_run_service_iam_policy" "noauth" {
 output "service_url" {
   value = google_cloud_run_service.app.status[0].url
 }
-*/

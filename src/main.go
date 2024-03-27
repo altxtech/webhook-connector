@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
-	"log"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -34,6 +38,18 @@ var db database.Database = initDB()
 type ConfigOperationRequest struct {
 	// Request for creating new configurations and updating new ones
 	Name string `json:"name"`
+	UseKey bool `json:"use_key"`
+	Sink struct  {
+		Type string `json:"type"`
+		Config map[string]interface{}
+	} `json:"sink"`
+}
+
+type ConfigCreationRestul struct {
+	// Request for creating new configurations and updating new ones
+	Name string `json:"name"`
+	UseKey bool `json:"use_key"`
+	Key string `json:"string"`
 	Sink struct  {
 		Type string `json:"type"`
 		Config map[string]interface{}
@@ -84,6 +100,27 @@ func CreateConfig(c *gin.Context) {
 		return
 	}
 
+	// Create a webhook key
+	if request.UseKey {
+		key, err := GenerateRandomString(24)
+		if err != nil {
+			message := fmt.Sprintf("Failed to generate webhook key: %v", err)
+			response := NewAPIErrorResponse(message)
+			c.IndentedJSON(http.StatusInternalServerError, response)
+			return
+		}
+		hash := CreateKeyHashPair(idConfig.ID, key)
+		idConfig.SetKeyHash(hash)
+		_, err = db.UpdateConfig(idConfig)
+		if err != nil {
+			message := fmt.Sprintf("Failed to generate webhook key: %v", err)
+			response := NewAPIErrorResponse(message)
+			c.IndentedJSON(http.StatusInternalServerError, response)
+			return
+		}
+	}
+	
+
 	c.IndentedJSON(http.StatusOK, idConfig)
 	return
 }
@@ -114,6 +151,57 @@ func ListConfigs(c *gin.Context) {
 
 	c.IndentedJSON(http.StatusOK, configs)
 }
+
+
+// GenerateRandomString generates a random string of the specified length.
+func GenerateRandomString(length int) (string, error) {
+    // Determine the number of bytes needed to represent the random string
+    numBytes := length / 2
+    
+    // Create a byte slice to store the random bytes
+    randomBytes := make([]byte, numBytes)
+    
+    // Read random bytes from the crypto/rand package
+    _, err := rand.Read(randomBytes)
+    if err != nil {
+        return "", err
+    }
+    
+    // Convert the random bytes to a hexadecimal string
+    randomString := hex.EncodeToString(randomBytes)
+    
+    // Truncate the string to the desired length
+    if len(randomString) > length {
+        randomString = randomString[:length]
+    }
+    
+    return randomString, nil
+}
+
+
+// CreateKeyHashPair generates a salted hash for a given key.
+func CreateKeyHashPair(salt string, key string) (string) {
+    // Concatenate the salt and key
+    data := []byte(salt + key)
+    
+    // Generate the hash
+    hash := sha256.Sum256(data)
+    
+    // Convert the hash to a hexadecimal string
+    hashString := hex.EncodeToString(hash[:])
+    
+    return hashString
+}
+
+// CheckKey verifies if the provided key matches the given hash and salt.
+func CheckKey(salt string, key string, keyHash string) bool {
+    // Recalculate the hash using the provided key and salt
+    newHash := CreateKeyHashPair(salt, key)
+    
+    // Compare the recalculated hash with the provided hash
+    return newHash == keyHash
+}
+
 
 func GetConfig(c *gin.Context) {
 	id := c.Param("id")
@@ -215,6 +303,19 @@ func IngestWebhook(c *gin.Context){
 	}
 	event.Metadata.SourceId = config.ID
 	event.Metadata.SourceName = config.Name
+
+	// Check authorization
+	if config.UseKey {
+		// Extract the key
+		keyParts := strings.Split(c.Request.Header.Get("Authorization"), " ")
+		key := keyParts[len(keyParts) - 1]
+
+		if !CheckKey(config.ID, key, config.KeyHash) {
+			response := NewAPIErrorResponse("Unauthorized. Invalid webhook key.")
+			c.IndentedJSON(http.StatusUnauthorized, response)
+			return
+		}
+	}
 	
 	// Read body data
 	data, err := io.ReadAll(c.Request.Body) 
