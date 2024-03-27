@@ -97,7 +97,7 @@ resource "docker_image" "build_image" {
 
 
 resource "docker_registry_image" "image" {
-  name = "${docker_image.build_image.name}:${local.source_hash}"
+  name = docker_image.build_image.name
   triggers = {
     "source_code_changes" = local.source_hash
   }
