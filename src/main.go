@@ -143,7 +143,7 @@ func ConfigFromRequest(request ConfigOperationRequest) (conf.Configuration, erro
 	if err != nil {
 		return newConfig, fmt.Errorf("Failed to process sink configuration: %v", err)
 	}
-	newConfig = conf.NewConfiguration(request.Name, sinkConf)
+	newConfig = conf.NewConfiguration(request.Name, sinkConf, request.UseKey)
 
 	return newConfig, nil
 }
